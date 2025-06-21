@@ -1,0 +1,22 @@
+# Sample configuration file for k8s-controller
+# Copy this to k8s-config.yaml and adjust as needed
+
+# Log configuration
+log:
+  level: INFO  # DEBUG, INFO, WARN, ERROR
+
+# Kubernetes configuration
+kubernetes:
+  # Path to kubeconfig file (optional, uses default if not specified)
+  kubeconfig: ""
+  
+  # Comma-separated list of namespaces to watch (defaults to "default")
+  namespaces: "default,kube-system"
+  
+  # Comma-separated list of resources to watch
+  resources: "deployments,services,pods,configmaps"
+
+# Controller specific configuration
+controller:
+  # Interval in seconds to reconcile resources
+  reconcileInterval: 30
