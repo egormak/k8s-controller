@@ -8,8 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"k8s-controller/internal/app"
 )
 
 var cfgFile string
@@ -19,18 +17,17 @@ var logLevel string
 var rootCmd = &cobra.Command{
 	Use:   "k8s-controller",
 	Short: "k8s-controller is a CLI tool for managing Kubernetes",
+	Long: `k8s-controller is a CLI tool that provides both HTTP API and controller functionality.
+
+Use 'k8s-controller serve' to start the HTTP server
+Use 'k8s-controller control' to start the Kubernetes controller`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		setupLogger()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// Just show help if no subcommand is provided
 		fmt.Println("Welcome to k8s-controller. Use --help for usage.")
-		slog.Info("k8s-controller started")
-
-		controller := app.NewKubernetesController()
-		if err := controller.Run(); err != nil {
-			slog.Error("Failed to run controller", "error", err)
-			os.Exit(1)
-		}
+		_ = cmd.Help()
 	},
 }
 
@@ -71,15 +68,11 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/k8s-controller.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/k8s-config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "INFO", "Set the logging level (DEBUG, INFO, WARN, ERROR)")
 
 	viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
