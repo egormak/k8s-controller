@@ -21,10 +21,10 @@ jobs:
           cache: true
 
       - name: Build
-        run: go build -v -o k8s-controller ./...
+        run: go build -v -o k8s-controller
 
       - name: Test
-        run: go test -v ./...
+        run: go test -v
       
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
