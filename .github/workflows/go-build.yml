@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# Add permissions for the SARIF upload
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   build:
     name: Build Go Binary
