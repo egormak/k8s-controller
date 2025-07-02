@@ -2,9 +2,11 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -17,6 +19,7 @@ import (
 type Client interface {
 	domain.ResourceClient
 	SetEventHandler(handler ResourceEventHandler)
+	ListDeployments(ctx context.Context, namespace string) ([]domain.Deployment, error)
 }
 
 // kubeClient is a concrete implementation of the Client interface
@@ -117,4 +120,37 @@ func (c *kubeClient) ApplyResource(ctx context.Context, resource domain.Resource
 	// Implementation would use the clientset to apply the resource
 	// This is a placeholder
 	return nil
+}
+
+// ListDeployments retrieves all deployments in the specified namespace
+func (c *kubeClient) ListDeployments(ctx context.Context, namespace string) ([]domain.Deployment, error) {
+	slog.Debug("Listing deployments", "namespace", namespace)
+
+	if c.clientset == nil {
+		return nil, fmt.Errorf("kubernetes client not connected")
+	}
+
+	deploymentList, err := c.clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Error("Failed to list deployments", "error", err, "namespace", namespace)
+		return nil, err
+	}
+
+	var deployments []domain.Deployment
+	for _, dep := range deploymentList.Items {
+		deployment := domain.Deployment{
+			Name:              dep.Name,
+			Namespace:         dep.Namespace,
+			ReadyReplicas:     dep.Status.ReadyReplicas,
+			UpdatedReplicas:   dep.Status.UpdatedReplicas,
+			AvailableReplicas: dep.Status.AvailableReplicas,
+			Replicas:          *dep.Spec.Replicas,
+			Labels:            dep.Labels,
+			CreationTimestamp: dep.CreationTimestamp.Format("2006-01-02 15:04:05"),
+		}
+		deployments = append(deployments, deployment)
+	}
+
+	slog.Info("Successfully listed deployments", "count", len(deployments), "namespace", namespace)
+	return deployments, nil
 }
