@@ -58,5 +58,7 @@ func init() {
 
 	// Add any serve-specific flags
 	serveCmd.Flags().IntP("port", "p", 0, "Port to run the HTTP server on (default is from config or 8080)")
-	viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port"))
+	if err := viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port")); err != nil {
+		panic(fmt.Errorf("failed to bind server.port flag: %w", err))
+	}
 }
