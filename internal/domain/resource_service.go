@@ -45,7 +45,25 @@ func (s *resourceService) HandleResourceEvent(ctx context.Context, event Resourc
 		"namespace", event.Resource.Namespace,
 		"eventType", event.Type)
 
-	// Apply business logic here based on the resource event
+	// Apply business logic based on the resource event
+	switch event.Resource.Kind {
+	case "Deployment":
+		slog.Info("Deployment event detected",
+			"name", event.Resource.Name,
+			"namespace", event.Resource.Namespace,
+			"eventType", event.Type)
+		// Add specific deployment processing logic here if needed
+	case "Service":
+		slog.Info("Service event detected",
+			"name", event.Resource.Name,
+			"namespace", event.Resource.Namespace,
+			"eventType", event.Type)
+	case "Pod":
+		slog.Info("Pod event detected",
+			"name", event.Resource.Name,
+			"namespace", event.Resource.Namespace,
+			"eventType", event.Type)
+	}
 
 	return nil
 }

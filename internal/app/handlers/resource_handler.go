@@ -21,7 +21,7 @@ func NewResourceHandler(resourceService domain.ResourceService) *ResourceHandler
 
 // HandleEvent processes a resource event
 func (h *ResourceHandler) HandleEvent(ctx context.Context, event domain.ResourceEvent) error {
-	slog.Debug("Processing resource event",
+	slog.Info("Processing resource event",
 		"type", event.Type,
 		"kind", event.Resource.Kind,
 		"name", event.Resource.Name,

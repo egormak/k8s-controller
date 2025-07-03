@@ -104,7 +104,13 @@ func (c *kubeClient) WatchResources(ctx context.Context) error {
 		return nil
 	}
 
-	return c.InitializeInformers(ctx, c.namespaces)
+	// First initialize informers to ensure cache is ready
+	if err := c.InitializeInformers(ctx, c.namespaces); err != nil {
+		return err
+	}
+
+	// Then start watching resources with event handlers
+	return c.startInformers(ctx, c.namespaces, c.watchedResources, c.eventHandler)
 }
 
 // GetResource retrieves a specific resource
