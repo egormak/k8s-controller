@@ -1,112 +1,133 @@
 # Kubernetes Controller
 
-A Go-based Kubernetes controller built using Domain-Driven Design (DDD) principles for better separation of concerns, maintainability, and extensibility.
+A lightweight, Go-based Kubernetes controller with HTTP API capabilities. This project demonstrates how to build a clean, modular Kubernetes controller with a well-defined separation of concerns.
+
+## Features
+
+- Kubernetes controller that watches and responds to resource events
+- HTTP API for interacting with Kubernetes resources
+- Clean separation between business logic and infrastructure
+- Configuration through environment variables or config file
+- Support for multiple namespaces and resource types
 
 ## Project Structure
 
-The project follows a DDD architecture with clear separation between layers:
+The project follows a simplified layered architecture:
 
 ```
 k8s-controller/
 ├── cmd/              # Command-line entry points
-│   └── root.go       # Root command implementation
+│   ├── control.go    # Kubernetes controller command
+│   ├── list.go       # List resources command
+│   ├── root.go       # Root command implementation
+│   └── serve.go      # HTTP server command
 ├── internal/         # Internal packages (not importable from outside)
 │   ├── app/          # Application services
 │   │   ├── controller.go      # Main controller orchestration
-│   │   └── handlers/          # Application event handlers
+│   │   └── handlers/          # Event handlers
 │   │       └── resource_handler.go
 │   ├── domain/       # Domain model and services
-│   │   ├── models.go          # Domain entities and value objects
-│   │   └── resource_service.go # Domain service interfaces
+│   │   ├── deployment.go      # Deployment model
+│   │   ├── models.go          # Core model entities
+│   │   └── resource_service.go # Resource service
 │   └── infrastructure/ # Infrastructure implementations
 │       ├── config/           # Configuration handling
 │       │   └── config.go
-│       └── kubernetes/       # Kubernetes client implementation
-│           ├── client.go
-│           └── informer.go
+│       ├── kubernetes/       # Kubernetes client implementation
+│       │   ├── client.go
+│       │   └── informer.go
+│       └── server/          # HTTP server implementation
+│           ├── deployment_controller.go
+│           └── server.go
+├── manifests/        # Kubernetes manifests for testing
+│   └── nginx_deployment.yaml
 ├── k8s-config.sample.yaml # Sample configuration file
-├── main.go          # Application entry point
-└── README.md        # Project documentation
+├── Dockerfile       # Container build definition
+├── Makefile        # Build automation
+└── main.go         # Application entry point
 ```
-
-## Domain-Driven Design (DDD) Layers
-
-1. **Domain Layer** (`internal/domain/`)
-   - Contains the core business logic and domain model
-   - Defines interfaces that are implemented by infrastructure layer
-   - Independent of external frameworks or technologies
-
-2. **Application Layer** (`internal/app/`)
-   - Orchestrates domain objects to perform specific use cases
-   - Handles the flow of data and coordinates between different components
-   - Contains application services and event handlers
-
-3. **Infrastructure Layer** (`internal/infrastructure/`)
-   - Implements domain interfaces using specific technologies (Kubernetes, config)
-   - Handles technical concerns such as database connections, external APIs, etc.
-   - Adapts external systems to the domain model
-
-4. **User Interface Layer** (`cmd/`)
-   - Handles user interactions via command line
-   - Passes commands to the application layer for processing
 
 ## Getting Started
 
 ### Prerequisites
 
-- Go 1.21 or higher
-- Access to a Kubernetes cluster
-- `kubectl` configured with cluster access
+- Go 1.24+
+- Access to a Kubernetes cluster (local or remote)
+- kubectl configured with access to your cluster
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/egorka/k8s-controller.git
-cd k8s-controller
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/k8s-controller.git
+   cd k8s-controller
+   ```
 
-# Build the project
-go build -o k8s-controller
+2. Build the application:
+   ```bash
+   make build
+   ```
 
-# Copy sample config
-cp k8s-config.sample.yaml k8s-config.yaml
-
-# Edit the configuration as needed
-vim k8s-config.yaml
-```
+3. Create a configuration file:
+   ```bash
+   cp k8s-config.sample.yaml k8s-config.yaml
+   # Edit k8s-config.yaml with your settings
+   ```
 
 ### Usage
 
+#### Starting the HTTP Server
+
 ```bash
-# Run the controller with default configuration
-./k8s-controller
+./k8s-controller serve --port 8080
+```
 
-# Run with specific config file
-./k8s-controller --config /path/to/config.yaml
+#### Starting the Kubernetes Controller
 
-# Run with debug logging
-./k8s-controller --log-level DEBUG
+```bash
+./k8s-controller control --namespaces default,kube-system
+```
+
+#### Listing Deployments
+
+```bash
+./k8s-controller list deployments --namespace default
 ```
 
 ## Configuration
 
-The controller can be configured using a YAML file. See `k8s-config.sample.yaml` for example configuration options.
+The application can be configured using:
 
-Key configuration options:
+1. Command-line flags
+2. Environment variables 
+3. Configuration file (YAML)
 
-- `log.level`: Logging level (DEBUG, INFO, WARN, ERROR)
-- `kubernetes.kubeconfig`: Path to kubeconfig file (optional)
-- `kubernetes.namespaces`: Comma-separated list of namespaces to watch
-- `kubernetes.resources`: Comma-separated list of resource types to watch
+Example configuration file:
 
-## Extending the Controller
+```yaml
+log:
+  level: INFO
+kubernetes:
+  namespaces: default,kube-system
+  resources: deployments,services,pods
+server:
+  port: 8080
+```
 
-To add support for new resource types:
+## Development
 
-1. Update the `setupInformer` method in `internal/infrastructure/kubernetes/informer.go`
-2. Add domain-specific handling logic in `internal/app/handlers/resource_handler.go`
-3. Update the configuration to include the new resource type
+### Running Tests
+
+```bash
+make test
+```
+
+### Building Docker Image
+
+```bash
+make docker-build
+```
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the MIT License - see the LICENSE file for details.

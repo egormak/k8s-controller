@@ -23,15 +23,13 @@ type KubernetesController struct {
 }
 
 // NewKubernetesController creates a new controller instance
-func NewKubernetesController() *KubernetesController {
+func NewKubernetesController(cfg *config.Config) *KubernetesController {
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Load configuration
-	cfg, err := config.Load()
-	if err != nil {
-		slog.Error("Failed to load configuration", "error", err)
-		cfg = &config.Config{} // Use default config on error
+	// Use default config if not provided
+	if cfg == nil {
+		cfg = config.Default()
 	}
 
 	// Create client
@@ -56,18 +54,17 @@ func NewKubernetesController() *KubernetesController {
 	}
 }
 
-// Run starts the controller's main loop
-func (c *KubernetesController) Run() error {
-	slog.Info("Initializing Kubernetes controller")
+// Start initializes and starts the controller
+func (c *KubernetesController) Start() error {
+	slog.Info("Starting Kubernetes controller")
 
-	// Connect to the Kubernetes cluster
+	// Connect to Kubernetes cluster
 	if err := c.client.Connect(c.ctx); err != nil {
+		slog.Error("Failed to connect to Kubernetes", "error", err)
 		return err
 	}
 
-	slog.Info("Kubernetes controller started")
-
-	// Start watching resources
+	// Start watching resources in a goroutine
 	go func() {
 		if err := c.resourceService.WatchResources(c.ctx); err != nil {
 			if c.ctx.Err() == nil { // Only log if not due to context cancellation
@@ -79,10 +76,6 @@ func (c *KubernetesController) Run() error {
 	// Start a periodic health check
 	go c.startPeriodicHealthCheck()
 
-	// Block until context is cancelled
-	<-c.ctx.Done()
-
-	slog.Info("Kubernetes controller stopped")
 	return nil
 }
 
@@ -100,7 +93,8 @@ func (c *KubernetesController) startPeriodicHealthCheck() {
 	for {
 		select {
 		case <-ticker.C:
-			slog.Info("Controller health check", "status", "running")
+			slog.Debug("Health check: Controller is running")
+			// Add more health check logic here if needed
 		case <-c.ctx.Done():
 			return
 		}

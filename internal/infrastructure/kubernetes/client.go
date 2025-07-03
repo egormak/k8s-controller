@@ -16,8 +16,9 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"k8s-controller/internal/domain"
-	"k8s-controller/internal/infrastructure/config"
 )
+
+// Using the ResourceEventHandler interface defined in informer.go
 
 // Client implements the domain.ResourceClient interface
 type Client interface {
@@ -26,20 +27,39 @@ type Client interface {
 	ListDeployments(ctx context.Context, namespace string) ([]domain.Deployment, error)
 	GetDeploymentInformer(namespace string) (cache.SharedIndexInformer, error)
 	InitializeInformers(ctx context.Context, namespaces []string) error
+	SetNamespaces(namespaces []string)
+	SetWatchedResources(resources []string)
 }
 
 // kubeClient is a concrete implementation of the Client interface
 type kubeClient struct {
 	clientset         *kubernetes.Clientset
-	config            *config.Config
 	eventHandler      ResourceEventHandler
 	informerFactories map[string]informers.SharedInformerFactory
+	namespaces        []string
+	watchedResources  []string
 }
 
-// NewClient creates a new Kubernetes client
+// NewClient creates a new Kubernetes client with sensible defaults
 func NewClient() Client {
 	return &kubeClient{
 		informerFactories: make(map[string]informers.SharedInformerFactory),
+		namespaces:        []string{"default"},
+		watchedResources:  []string{"deployments", "services", "pods"},
+	}
+}
+
+// SetNamespaces sets the namespaces to watch
+func (c *kubeClient) SetNamespaces(namespaces []string) {
+	if len(namespaces) > 0 {
+		c.namespaces = namespaces
+	}
+}
+
+// SetWatchedResources sets the types of resources to watch
+func (c *kubeClient) SetWatchedResources(resources []string) {
+	if len(resources) > 0 {
+		c.watchedResources = resources
 	}
 }
 
@@ -52,14 +72,9 @@ func (c *kubeClient) SetEventHandler(handler ResourceEventHandler) {
 func (c *kubeClient) Connect(ctx context.Context) error {
 	slog.Info("Connecting to Kubernetes cluster")
 
-	// Get kubeconfig from the config or use default location
-	var kubeconfigPath string
-	if c.config != nil && c.config.KubeconfigPath != "" {
-		kubeconfigPath = c.config.KubeconfigPath
-	} else {
-		home := homedir.HomeDir()
-		kubeconfigPath = filepath.Join(home, ".kube", "config")
-	}
+	// Use default kubeconfig location
+	home := homedir.HomeDir()
+	kubeconfigPath := filepath.Join(home, ".kube", "config")
 
 	// Build the config from the kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
@@ -89,28 +104,7 @@ func (c *kubeClient) WatchResources(ctx context.Context) error {
 		return nil
 	}
 
-	// Determine namespaces and resources to watch
-	namespaces := []string{"default"}
-	resources := []string{"deployments", "services", "pods"}
-
-	if c.config != nil {
-		if len(c.config.ResourceNamespaces) > 0 {
-			namespaces = c.config.ResourceNamespaces
-		}
-
-		if len(c.config.WatchedResources) > 0 {
-			resources = c.config.WatchedResources
-		}
-	}
-
-	// Start the informers
-	if err := c.startInformers(ctx, namespaces, resources, c.eventHandler); err != nil {
-		return err
-	}
-
-	// Block until context is cancelled
-	<-ctx.Done()
-	return ctx.Err()
+	return c.InitializeInformers(ctx, c.namespaces)
 }
 
 // GetResource retrieves a specific resource

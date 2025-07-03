@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"k8s-controller/internal/infrastructure/config"
 	"k8s-controller/internal/infrastructure/server"
 )
 
@@ -22,14 +23,15 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Starting HTTP server...")
 
-		// Get port from config
-		port := viper.GetInt("server.port")
-		if port == 0 {
-			port = 8080 // default port
+		// Load configuration
+		cfg, err := config.Load()
+		if err != nil {
+			slog.Error("Failed to load configuration", "error", err)
+			cfg = config.Default() // Use default config on error
 		}
 
 		// Create and configure server
-		srv := server.NewServer(port)
+		srv := server.NewServer(cfg.ServerPort)
 
 		// Setup routes - this will also connect to Kubernetes
 		slog.Info("Setting up routes and connecting to Kubernetes...")
@@ -49,12 +51,10 @@ var serveCmd = &cobra.Command{
 			}
 		}()
 
-		// Log server startup
-		slog.Info("HTTP server starting", "port", port)
-
-		// Start server (blocks until shutdown or error)
+		// Start the server
+		slog.Info("Starting server", "port", cfg.ServerPort)
 		if err := srv.Start(); err != nil {
-			slog.Error("Server error", "error", err)
+			slog.Error("Failed to start server", "error", err)
 			os.Exit(1)
 		}
 	},
@@ -63,9 +63,9 @@ var serveCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	// Add any serve-specific flags
-	serveCmd.Flags().IntP("port", "p", 0, "Port to run the HTTP server on (default is from config or 8080)")
-	if err := viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port")); err != nil {
-		panic(fmt.Errorf("failed to bind server.port flag: %w", err))
-	}
+	// Add flags for the serve command
+	serveCmd.Flags().Int("port", 8080, "Port to run the server on")
+
+	// Bind flags to viper config
+	viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port"))
 }
