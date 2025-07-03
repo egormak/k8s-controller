@@ -30,7 +30,11 @@ var serveCmd = &cobra.Command{
 
 		// Create and configure server
 		srv := server.NewServer(port)
+
+		// Setup routes - this will also connect to Kubernetes
+		slog.Info("Setting up routes and connecting to Kubernetes...")
 		srv.SetupRoutes()
+		slog.Info("Routes configured successfully")
 
 		// Handle graceful shutdown
 		go func() {
@@ -44,6 +48,9 @@ var serveCmd = &cobra.Command{
 				slog.Error("Error shutting down server", "error", err)
 			}
 		}()
+
+		// Log server startup
+		slog.Info("HTTP server starting", "port", port)
 
 		// Start server (blocks until shutdown or error)
 		if err := srv.Start(); err != nil {
