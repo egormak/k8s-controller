@@ -81,6 +81,11 @@ func init() {
 	// Add flags for the serve command
 	serveCmd.Flags().Int("port", 8080, "Port to run the server on")
 
+	// Add leader election flags
+	serveCmd.Flags().Bool("leader-elect", false, "Enable leader election for controller")
+	serveCmd.Flags().String("leader-election-id", "k8s-controller", "ID to use for leader election")
+	serveCmd.Flags().String("leader-election-namespace", "default", "Namespace to use for leader election")
+
 	// Bind flags to viper config
 	if err := viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port")); err != nil {
 		panic(err)

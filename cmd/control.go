@@ -65,6 +65,11 @@ func init() {
 	controlCmd.Flags().StringSlice("namespaces", []string{"default"}, "Namespaces to watch (comma-separated)")
 	controlCmd.Flags().StringSlice("resources", []string{"deployments,services,pods"}, "Resources to watch (comma-separated)")
 
+	// Add leader election flags
+	controlCmd.Flags().Bool("leader-elect", false, "Enable leader election for controller")
+	controlCmd.Flags().String("leader-election-id", "k8s-controller", "ID to use for leader election")
+	controlCmd.Flags().String("leader-election-namespace", "default", "Namespace to use for leader election")
+
 	// Bind flags to viper config
 	if err := viper.BindPFlag("kubernetes.namespaces", controlCmd.Flags().Lookup("namespaces")); err != nil {
 		panic(err)
