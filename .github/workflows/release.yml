@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+  security-events: write
   id-token: write
 
 env:
@@ -107,16 +108,35 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && github.repository_owner != '' 
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
+          category: 'trivy-docker-release'
+
+      - name: Display Trivy results (fallback)
+        if: always()
+        run: |
+          if [ -f "trivy-results.sarif" ]; then
+            echo "✅ Trivy scan completed. Results:"
+            # Convert SARIF to readable format for logs
+            if command -v jq >/dev/null 2>&1; then
+              echo "Found $(jq '.runs[0].results | length' trivy-results.sarif) security findings"
+            else
+              echo "SARIF file generated successfully"
+            fi
+          else
+            echo "❌ Trivy scan file not found"
+          fi
 
   create-release:
     name: Create GitHub Release
