@@ -72,4 +72,13 @@ func init() {
 	if err := viper.BindPFlag("kubernetes.resources", controlCmd.Flags().Lookup("resources")); err != nil {
 		panic(err)
 	}
+	if err := viper.BindPFlag("leader-election.enabled", controlCmd.Flags().Lookup("leader-elect")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("leader-election.id", controlCmd.Flags().Lookup("leader-election-id")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("leader-election.namespace", controlCmd.Flags().Lookup("leader-election-namespace")); err != nil {
+		panic(err)
+	}
 }

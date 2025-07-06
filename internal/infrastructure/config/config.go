@@ -8,11 +8,14 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	LogLevel           string
-	KubeconfigPath     string
-	ResourceNamespaces []string
-	WatchedResources   []string
-	ServerPort         int
+	LogLevel              string
+	KubeconfigPath        string
+	ResourceNamespaces    []string
+	WatchedResources      []string
+	ServerPort            int
+	EnableLeaderElection  bool
+	LeaderElectionID      string
+	LeaderElectionNamespace string
 }
 
 // Default returns a configuration with default values
@@ -49,6 +52,18 @@ func Load() (*Config, error) {
 
 	if viper.IsSet("server.port") {
 		cfg.ServerPort = viper.GetInt("server.port")
+	}
+
+	if viper.IsSet("leader-election.enabled") {
+		cfg.EnableLeaderElection = viper.GetBool("leader-election.enabled")
+	}
+
+	if viper.IsSet("leader-election.id") {
+		cfg.LeaderElectionID = viper.GetString("leader-election.id")
+	}
+
+	if viper.IsSet("leader-election.namespace") {
+		cfg.LeaderElectionNamespace = viper.GetString("leader-election.namespace")
 	}
 
 	return cfg, nil

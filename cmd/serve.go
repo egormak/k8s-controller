@@ -85,4 +85,13 @@ func init() {
 	if err := viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port")); err != nil {
 		panic(err)
 	}
+	if err := viper.BindPFlag("leader-election.enabled", serveCmd.Flags().Lookup("leader-elect")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("leader-election.id", serveCmd.Flags().Lookup("leader-election-id")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("leader-election.namespace", serveCmd.Flags().Lookup("leader-election-namespace")); err != nil {
+		panic(err)
+	}
 }

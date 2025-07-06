@@ -53,7 +53,9 @@ func NewControllerRuntime(cfg *config.Config) (*ControllerRuntime, error) {
 			BindAddress: metricsAddr,
 		},
 		HealthProbeBindAddress: healthAddr,
-		LeaderElection:         false,
+		LeaderElection:         cfg.EnableLeaderElection,
+		LeaderElectionID:       cfg.LeaderElectionID,
+		LeaderElectionNamespace: cfg.LeaderElectionNamespace,
 	}
 
 	// Create manager
