@@ -1,5 +1,7 @@
 FROM golang:1.24.4 AS builder
 
+ARG VERSION=dev
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -7,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o controller .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.version=${VERSION}" -o controller .
 
 FROM alpine:3.18
 

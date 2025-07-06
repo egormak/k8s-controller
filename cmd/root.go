@@ -13,10 +13,20 @@ import (
 var cfgFile string
 var logLevel string
 
+// version will be set by main package
+var version = "dev"
+
+// SetVersion sets the version for the application
+func SetVersion(v string) {
+	version = v
+	rootCmd.Version = v
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "k8s-controller",
-	Short: "k8s-controller is a CLI tool for managing Kubernetes",
+	Use:     "k8s-controller",
+	Short:   "k8s-controller is a CLI tool for managing Kubernetes",
+	Version: version,
 	Long: `k8s-controller is a CLI tool that provides both HTTP API and controller functionality.
 
 Use 'k8s-controller serve' to start the HTTP server

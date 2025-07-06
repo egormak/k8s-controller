@@ -29,6 +29,7 @@ test:
 clean:
 	@echo "Cleaning up..."
 	@rm -f $(BINARY_NAME)
+	@rm -rf dist/
 	@go clean
 
 # Run the application
@@ -62,17 +63,49 @@ docker-push:
 	@docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(DOCKER_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG)
 	@docker push $(DOCKER_REGISTRY)$(IMAGE_NAME):$(IMAGE_TAG)
 
+# Build release binaries for multiple platforms
+build-release:
+	@echo "Building release binaries..."
+	@mkdir -p dist
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(IMAGE_TAG)" -o dist/$(BINARY_NAME)-linux-amd64 .
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(IMAGE_TAG)" -o dist/$(BINARY_NAME)-linux-arm64 .
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(IMAGE_TAG)" -o dist/$(BINARY_NAME)-darwin-amd64 .
+	@GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(IMAGE_TAG)" -o dist/$(BINARY_NAME)-darwin-arm64 .
+	@GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(IMAGE_TAG)" -o dist/$(BINARY_NAME)-windows-amd64.exe .
+	@echo "Release binaries built in dist/ directory"
+
+# Create checksums for release binaries
+checksums:
+	@echo "Creating checksums..."
+	@cd dist && sha256sum * > checksums.txt
+	@echo "Checksums created in dist/checksums.txt"
+
+# Create a local release (for testing)
+release-local: clean build-release checksums
+	@echo "Local release created in dist/ directory"
+
+# Tag and push a new release
+release-tag:
+	@read -p "Enter version tag (e.g., v1.0.0): " tag; \
+	git tag $$tag && \
+	git push origin $$tag && \
+	echo "Tag $$tag pushed. Release workflow will start automatically."
+
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  all           - Clean, build, and test"
-	@echo "  build         - Build the application"
-	@echo "  test          - Run tests"
-	@echo "  clean         - Clean build artifacts"
-	@echo "  run           - Run the application"
-	@echo "  run-controller - Run the Kubernetes controller"
-	@echo "  run-server    - Run the HTTP server"
-	@echo "  run-debug     - Run with debug logs"
-	@echo "  docker-build  - Build Docker image"
-	@echo "  docker-push   - Push Docker image to registry"
-	@echo "  help          - Show this help message"
+	@echo "  all             - Clean, build, and test"
+	@echo "  build           - Build the application"
+	@echo "  test            - Run tests"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  run             - Run the application"
+	@echo "  run-controller  - Run the Kubernetes controller"
+	@echo "  run-server      - Run the HTTP server"
+	@echo "  run-debug       - Run with debug logs"
+	@echo "  docker-build    - Build Docker image"
+	@echo "  docker-push     - Push Docker image to registry"
+	@echo "  build-release   - Build release binaries for multiple platforms"
+	@echo "  checksums       - Create checksums for release binaries"
+	@echo "  release-local   - Create a local release (for testing)"
+	@echo "  release-tag     - Tag and push a new release"
+	@echo "  help            - Show this help message"

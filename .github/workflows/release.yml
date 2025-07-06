@@ -3,44 +3,214 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
 
 permissions:
   contents: write
   packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  release:
-    name: Create Release
+  build-binaries:
+    name: Build Binaries
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           cache: true
-      
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o k8s-controller-${{ matrix.suffix }} .
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-controller-${{ matrix.suffix }}
+          path: k8s-controller-${{ matrix.suffix }}
+          retention-days: 1
+
+  build-and-push-docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: build-binaries
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-binaries, build-and-push-docker]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "This is the first release"
+            CHANGELOG="🎉 First release of k8s-controller!"
+          else
+            echo "Generating changelog from $PREVIOUS_TAG to ${{ github.ref_name }}"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ github.ref_name }} | head -20)
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="- Minor updates and improvements"
+            fi
+          fi
+          
+          # Save changelog to file for release notes
+          cat > CHANGELOG.md << EOF
+          ## What's Changed
+          
+          $CHANGELOG
+          
+          ## 🐳 Docker Images
+          
+          \`\`\`bash
+          docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          docker pull ghcr.io/${{ github.repository }}:latest
+          \`\`\`
+          
+          ## 📦 Installation
+          
+          ### Binary Download
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Docker
+          \`\`\`bash
+          docker run --rm ghcr.io/${{ github.repository }}:${{ github.ref_name }} --help
+          \`\`\`
+          
+          ### Kubernetes
+          \`\`\`bash
+          kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/k8s-controller.yaml
+          \`\`\`
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...${{ github.ref_name }}
+          EOF
+
+      - name: Create checksums
+        run: |
+          cd artifacts
+          find . -name "k8s-controller-*" -type f -exec sha256sum {} \; > ../checksums.txt
+          cd ..
+
+      - name: Prepare Kubernetes manifest
+        run: |
+          # Replace placeholder with actual repository name and tag
+          sed "s|ghcr.io/REPOSITORY_PLACEHOLDER:latest|ghcr.io/${{ github.repository }}:${{ github.ref_name }}|g" \
+            manifests/k8s-controller.yaml > k8s-controller.yaml
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            artifacts/*/k8s-controller-*
+            checksums.txt
+            k8s-controller.yaml
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+      - name: Update latest release
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          echo "This is a stable release: ${{ github.ref_name }}"
+          # The 'latest' tag for Docker is already handled in the docker metadata step
