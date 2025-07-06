@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,12 +31,26 @@ var serveCmd = &cobra.Command{
 			cfg = config.Default() // Use default config on error
 		}
 
-		// Create and configure server
-		srv := server.NewServer(cfg.ServerPort)
+		// Create controller runtime server
+		srv, err := server.NewControllerRuntimeServer(cfg.ServerPort, cfg)
+		if err != nil {
+			slog.Error("Failed to create controller runtime server", "error", err)
+			os.Exit(1)
+		}
 
 		// Setup routes - this will also connect to Kubernetes
 		slog.Info("Setting up routes and connecting to Kubernetes...")
 		srv.SetupRoutes()
+
+		// Register controllers with controller-runtime
+		ctx := context.Background()
+		if err := srv.RegisterControllers(ctx); err != nil {
+			slog.Error("Failed to register controllers", "error", err)
+			os.Exit(1)
+		}
+
+		// Setup controller-runtime specific routes
+		srv.SetupControllerRuntimeRoutes()
 		slog.Info("Routes configured successfully")
 
 		// Handle graceful shutdown
@@ -67,5 +82,7 @@ func init() {
 	serveCmd.Flags().Int("port", 8080, "Port to run the server on")
 
 	// Bind flags to viper config
-	viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port"))
+	if err := viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port")); err != nil {
+		panic(err)
+	}
 }

@@ -17,6 +17,7 @@ type ResourceClient interface {
 type ResourceService interface {
 	WatchResources(ctx context.Context) error
 	HandleResourceEvent(ctx context.Context, event ResourceEvent) error
+	ProcessDeployment(ctx context.Context, deployment Deployment) error
 }
 
 // resourceService implements the ResourceService interface
@@ -35,6 +36,19 @@ func NewResourceService(client ResourceClient) ResourceService {
 func (s *resourceService) WatchResources(ctx context.Context) error {
 	slog.Info("Starting to watch resources")
 	return s.client.WatchResources(ctx)
+}
+
+// ProcessDeployment processes a deployment from controller-runtime
+func (s *resourceService) ProcessDeployment(ctx context.Context, deployment Deployment) error {
+	slog.Info("Processing deployment from controller-runtime",
+		"name", deployment.Name,
+		"namespace", deployment.Namespace,
+		"replicas", deployment.Replicas)
+
+	// Add your business logic for processing deployments here
+	// For example, you could validate the deployment, update related resources, etc.
+
+	return nil
 }
 
 // HandleResourceEvent processes a resource event

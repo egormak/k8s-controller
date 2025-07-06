@@ -5,7 +5,8 @@ A lightweight, Go-based Kubernetes controller with HTTP API capabilities. This p
 ## Features
 
 - Kubernetes controller that watches and responds to resource events
-- HTTP API for interacting with Kubernetes resources
+- HTTP API for interacting with Kubernetes resources using Fiber
+- Integration with Kubernetes controller-runtime for advanced controller capabilities
 - Clean separation between business logic and infrastructure
 - Configuration through environment variables or config file
 - Support for multiple namespaces and resource types
@@ -33,12 +34,16 @@ k8s-controller/
 │   └── infrastructure/ # Infrastructure implementations
 │       ├── config/           # Configuration handling
 │       │   └── config.go
+│       ├── controller/       # Kubernetes controller-runtime implementation
+│       │   ├── controller_runtime.go  # Controller-runtime integration
+│       │   └── deployment_reconciler.go # Deployment reconciler
 │       ├── kubernetes/       # Kubernetes client implementation
 │       │   ├── client.go
 │       │   └── informer.go
 │       └── server/          # HTTP server implementation
-│           ├── deployment_controller.go
-│           └── server.go
+│           ├── controller_runtime_server.go # Server with controller-runtime
+│           ├── deployment_controller.go     # Deployment controller
+│           └── server.go                   # Base server implementation
 ├── manifests/        # Kubernetes manifests for testing
 │   └── nginx_deployment.yaml
 ├── k8s-config.sample.yaml # Sample configuration file
@@ -76,11 +81,15 @@ k8s-controller/
 
 ### Usage
 
-#### Starting the HTTP Server
+#### Starting the HTTP Server with Controller-Runtime
 
 ```bash
 ./k8s-controller serve --port 8080
 ```
+
+This starts both:
+1. A Fiber REST API server on the specified port
+2. A Kubernetes controller-runtime manager in the background
 
 #### Starting the Kubernetes Controller
 

@@ -66,6 +66,10 @@ func init() {
 	controlCmd.Flags().StringSlice("resources", []string{"deployments,services,pods"}, "Resources to watch (comma-separated)")
 
 	// Bind flags to viper config
-	viper.BindPFlag("kubernetes.namespaces", controlCmd.Flags().Lookup("namespaces"))
-	viper.BindPFlag("kubernetes.resources", controlCmd.Flags().Lookup("resources"))
+	if err := viper.BindPFlag("kubernetes.namespaces", controlCmd.Flags().Lookup("namespaces")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("kubernetes.resources", controlCmd.Flags().Lookup("resources")); err != nil {
+		panic(err)
+	}
 }
