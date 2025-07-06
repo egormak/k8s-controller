@@ -16,7 +16,12 @@ kubernetes:
   # Comma-separated list of resources to watch
   resources: "deployments,services,pods,configmaps"
 
-# Controller specific configuration
-controller:
-  # Interval in seconds to reconcile resources
-  reconcileInterval: 30
+# Server configuration
+server:
+  port: 8080
+
+# Leader election configuration
+leader-election:
+  enabled: false
+  id: "k8s-controller-leader-election"
+  namespace: "default"
